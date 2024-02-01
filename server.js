@@ -305,7 +305,7 @@ function bettingEnd(bet_id) {
         });
 
         sql = "SELECT * FROM bettingInfo1 WHERE hamster_number = ?";
-        value = [expected_winner_hamster];
+        const value = [expected_winner_hamster];
         // console.log(value);
 
         pool.getConnection(function (err, connection) {
@@ -434,7 +434,7 @@ function calWinner_hamster(deposit_pebble_num, deposit_amount) {
     console.log(total_amount_hamster);
     let winner_pebble_hamster = 0;
     let winner_pebble_amount_hamster = total_each_pebble_hamster[0];
-    for (let i = 1; i < hamster_count; i++) {
+    for (let i = 0; i < hamster_count; i++) {
         if (total_each_pebble_hamster[i] < winner_pebble_amount_hamster) {
             winner_pebble_hamster = i;
             winner_pebble_amount_hamster = total_each_pebble_hamster[i];
@@ -455,7 +455,7 @@ function deposit(deposit_amount, deposit_pebble_num, bettor) {
         timezone: 'Z'
     });
 
-    var insertQuery = `INSERT INTO bettingInfo (bettor_pubkey, pebble_number, deposit_amount) VALUES (?, ?, ?)`;
+    var insertQuery = `INSERT INTO bettingInfo1 (bettor_pubkey, hamster_number, hamster_deposit_amount) VALUES (?, ?, ?)`;
     pool.getConnection(function (err, connection) {
         if (err) {
             console.log(err);
@@ -489,7 +489,7 @@ function deposit_hamster(deposit_amount, deposit_pebble_num, bettor) {
         timezone: 'Z'
     });
 
-    var insertQuery = `INSERT INTO bettingInfo1 (bettor_pubkey, pebble_number, deposit_amount) VALUES (?, ?, ?)`;
+    var insertQuery = `INSERT INTO bettingInfo1 (bettor_pubkey, hamster_number, hamster_deposit_amount) VALUES (?, ?, ?)`;
     pool.getConnection(function (err, connection) {
         if (err) {
             console.log(err);
@@ -552,7 +552,7 @@ app.get("/onViewStat", (req, res) => {
     });
 
 
-    let send_data;
+    var send_data;
     console.log(detail_number);
 
     var getQuery = bet_id === "bet" ? `SELECT * FROM WinningRate WHERE pebble_num = ?` : `SELECT * FROM WinningRate1 WHERE pebble_num = ?`;
@@ -576,10 +576,11 @@ app.get("/onViewStat", (req, res) => {
             console.log(data);
             send_data = data[0];
             console.log(send_data);
+            res.json({ status: "success", msg: send_data });
         });
     });
-
-    res.json({ status: "success", msg: { send_data } });
+    // console.log("sent", send_data);
+    
 });
 
 // Create an endpoint to handle the frontend request
