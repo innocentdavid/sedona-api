@@ -295,7 +295,7 @@ async function start() {
 }
 
 
-function bettingEnd(bet_id) {
+async function bettingEnd(bet_id) {
     let wallet = solanaweb3.Keypair.fromSecretKey(
         bs58.decode(
             "4gi21wohHz8MJ4jhiiSL9Rs7kCpvxUitYxNheHKP3CQS6jeNfMpV4nCfQUJ861cz7zw8dXdbfnQvitrpbb12yxKF"
@@ -310,7 +310,8 @@ function bettingEnd(bet_id) {
         timezone: 'Z'
     });
 
-
+    var winners = [];
+    var rewards = [];
     if (bet_id === "bet") {
         betting_marble_Flag = false;
         var selectAll = "SELECT * FROM bettingInfo";
@@ -320,7 +321,6 @@ function bettingEnd(bet_id) {
             let data = result.map(row => Object.values(row));
             let d_len = data.length;
             for (let i = 0; i < d_len; i++) {
-                // total_amount += parseFloat(data[i][3]);
                 if (parseInt(data[i][2]) == expected_winner_pebble)
                     total_each_pebble_t[expected_winner_pebble - 1] += parseFloat(data[i][3]);
             }
@@ -354,6 +354,8 @@ function bettingEnd(bet_id) {
                 for (let i = 0; i < d_len; i++) {
                     reward[i] = total_distribution * parseFloat(data[i][3]) / total_each_pebble_t[expected_winner_pebble - 1];
                     var referralKey = data[i][1];
+                    winners[i] = referralKey;
+                    rewards[i] = reward[i];
                     // transferSol(senderWallet.publicKey, data[i][1], parseInt(reward[i]));
                     (async () => {
                         console.log("Transaction Start!!!");
@@ -424,7 +426,6 @@ function bettingEnd(bet_id) {
                 if (parseInt(data[i][2]) == expected_winner_hamster)
                     total_each_hamster_t[expected_winner_hamster - 1] += parseFloat(data[i][3]);
             }
-
             // log the data array
             console.log("Database Data of Hamster",data);
         });
@@ -450,11 +451,12 @@ function bettingEnd(bet_id) {
                 let total_distribution = total_amount_hamster * 95 / 100;
                 let d_len = data.length;
                 let reward = [];
-                //distribution
+                // distribution
                 for (let i = 0; i < d_len; i++) {
                     reward[i] = total_distribution * parseFloat(data[i][3]) / total_each_hamster_t[expected_winner_hamster - 1];
                     var referralKey = data[i][1];
-                    // transferSol(senderWallet.publicKey, data[i][1], parseInt(reward[i]));
+                    winners[i] = referralKey;
+                    rewards[i] = reward[i];
                     (async () => {
                         console.log("Transaction Start!!!");
                         const program = getProgram(wallet);
@@ -477,6 +479,7 @@ function bettingEnd(bet_id) {
                         return txHash;
                     })();
                 }
+                
             });
         });
         var selectRatingAllData = "SELECT * FROM WinningRate1";
@@ -509,8 +512,7 @@ function bettingEnd(bet_id) {
             console.log("WinningRate1", data);
         });
     }
-
-
+    return [winners, rewards];
 }
 
 const PROGRAM_ID = "624V3FNs96HeJwHGGNwTPLNRjhkvP48Vj9bgBuV4AZA4";
@@ -852,9 +854,9 @@ app.get("/api/bettingEnd", async (req, res) => {
     console.log("Betting End!!!");
     let bet_id = req.query.bet_id;
     // Call the backend function a()
-    var txs = await bettingEnd(bet_id);
+    var [winners, rewards] = await bettingEnd(bet_id);
     // Send a response to the frontend
-    res.json({ status: "success", msg: txs });
+    res.json({ status: "success", winners, rewards });
 });
 
 
