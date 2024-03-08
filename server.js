@@ -37,12 +37,18 @@ app.use(cookieParser());
 app.use(cors({}));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
 const server = http.createServer(app);
+
+// Start the server
+server.listen(3000, () => {
+    console.log("Server running on port 3000");
+});
 
 const io = new Server(server, {
     cors: {
-        origin: "",
-        // origin: 'http://127.0.0.1:5173',
+        // origin: 'https://humble-halibut-4wv5p96jj427pg9-5173.app.github.dev',
+        origin: "*",
         methods: ['GET', 'POST'],
     },
 });
@@ -100,8 +106,8 @@ let expected_winner_pebble = 1;
 let expected_winner_hamster = 1;
 let betting_marble_Flag = false;
 let betting_hamster_Flag = false;
-let last_marble_vetting_result = [3, 2, 1, 4, 5, 8, 7, 6];
-let last_hamster_vetting_result = [4, 2, 3, 1];
+let last_marble_vetting_result = [1, 2, 3, 4, 5, 6, 7, 8];
+let last_hamster_vetting_result = [1, 2, 3, 4];
 const MARBLE_LIST = [
     "Moscow",
     "NewYork",
@@ -312,6 +318,8 @@ async function bettingEnd(bet_id) {
 
     var winners = [];
     var rewards = [];
+
+    // try {
     if (bet_id === "bet") {
         betting_marble_Flag = false;
         var selectAll = "SELECT * FROM bettingInfo";
@@ -427,7 +435,7 @@ async function bettingEnd(bet_id) {
                     total_each_hamster_t[expected_winner_hamster - 1] += parseFloat(data[i][3]);
             }
             // log the data array
-            console.log("Database Data of Hamster",data);
+            console.log("Database Data of Hamster", data);
         });
 
         sql = "SELECT * FROM bettingInfo1 WHERE hamster_number = ?";
@@ -449,20 +457,23 @@ async function bettingEnd(bet_id) {
                 // Log the retrieved data
                 let data = results.map(row => Object.values(row));
                 let total_distribution = total_amount_hamster * 95 / 100;
+                console.log('>>>>>>>>>>> total_distribution', total_distribution);
                 let d_len = data.length;
                 let reward = [];
                 // distribution
                 for (let i = 0; i < d_len; i++) {
+                    console.log('>>>>>>>>>>> parseFloat(data[i][3])', parseFloat(data[i][3]));
                     reward[i] = total_distribution * parseFloat(data[i][3]) / total_each_hamster_t[expected_winner_hamster - 1];
                     var referralKey = data[i][1];
                     winners[i] = referralKey;
                     rewards[i] = reward[i];
+
                     (async () => {
                         console.log("Transaction Start!!!");
                         const program = getProgram(wallet);
                         // console.log(program);
                         const value = new BN(reward[i] * LAMPORTS_PER_SOL);//new BN(reward[i] * 1000000000)
-                        console.log(value);
+                        console.log('>>>>>>>>>>> reward transferSol', value);
                         const tx = new Transaction().add(
                             await program.methods
                                 .transferSol(value)
@@ -479,7 +490,7 @@ async function bettingEnd(bet_id) {
                         return txHash;
                     })();
                 }
-                
+
             });
         });
         var selectRatingAllData = "SELECT * FROM WinningRate1";
@@ -512,7 +523,28 @@ async function bettingEnd(bet_id) {
             console.log("WinningRate1", data);
         });
     }
-    return [winners, rewards];
+    // } catch (error) {
+    //     console.error(error.message);
+    // } finally {
+    //     connection.end(); // Close MySQL connection
+    // }
+
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            let results = [];
+
+            for (let i = 0; i < winners.length; i++) {
+                results.push({
+                    betType: bet_id,
+                    winner: winners[i],
+                    reward: rewards[i]
+                })
+            };
+            resolve(results);
+        }, 100);
+    });
+
+    // return [winners, rewards];
 }
 
 const PROGRAM_ID = "624V3FNs96HeJwHGGNwTPLNRjhkvP48Vj9bgBuV4AZA4";
@@ -570,7 +602,7 @@ function deposit(deposit_amount, deposit_pebble_num, bettor) {
         database: 'mydb',
         timezone: 'Z'
     });
-
+    total_amount += deposit_amount;
     var insertQuery = `INSERT INTO bettingInfo (bettor_pubkey, pebble_number, pebble_deposit_amount) VALUES (?, ?, ?)`;
     pool.getConnection(function (err, connection) {
         if (err) {
@@ -636,6 +668,7 @@ function deposit_hamster(deposit_amount, deposit_pebble_num, bettor) {
         database: 'mydb',
         timezone: 'Z'
     });
+    total_amount_hamster += deposit_amount;
 
     var insertQuery = `INSERT INTO bettingInfo1 (bettor_pubkey, hamster_number, hamster_deposit_amount) VALUES (?, ?, ?)`;
     pool.getConnection(function (err, connection) {
@@ -854,9 +887,9 @@ app.get("/api/bettingEnd", async (req, res) => {
     console.log("Betting End!!!");
     let bet_id = req.query.bet_id;
     // Call the backend function a()
-    var [winners, rewards] = await bettingEnd(bet_id);
+    var winners = await bettingEnd(bet_id);
     // Send a response to the frontend
-    res.json({ status: "success", winners, rewards });
+    res.json({ status: "success", winners });
 });
 
 
@@ -932,10 +965,7 @@ app.get("/api/bettingStart", (req, res) => {
     }
     res.send("Betting Successfully Start!!!");
 });
-// Start the server
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
-});
+
 const IDL = {
     "version": "0.1.0",
     "name": "solana_betting_contract",
