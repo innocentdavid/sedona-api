@@ -25,9 +25,19 @@ import solanaweb3 from "@solana/web3.js";
 import bs58 from "bs58";
 // import { toast } from "react-toastify";
 import dotenv from 'dotenv'
+import { createClient } from "@supabase/supabase-js";
 
 
 dotenv.config({ path: ".env" });
+const supabaseUrl = "https://inqjbgvohbioletfhmna.supabase.co";
+export const supabase = createClient(
+  supabaseUrl,
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlucWpiZ3ZvaGJpb2xldGZobW5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDkwOTk1MjIsImV4cCI6MjAyNDY3NTUyMn0.YxTqdgTdgZvv5noMygURCqfyRwZvce1PrZLS52l4eT8"
+);
+export const supabaseAdmin = createClient(
+  supabaseUrl,
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlucWpiZ3ZvaGJpb2xldGZobW5hIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwOTA5OTUyMiwiZXhwIjoyMDI0Njc1NTIyfQ.s1cEXWTFlr5-GU87cp7l6DsbNabM_8Ded9Dkh23uM78"
+);
 
 const app = express();
 const PORT = process.env.PORT || 3000
@@ -40,60 +50,70 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
-// Start the server
-server.listen(3000, () => {
-    console.log("Server running on port 3000");
-});
-
 const io = new Server(server, {
     cors: {
-        // origin: 'https://humble-halibut-4wv5p96jj427pg9-5173.app.github.dev',
-        origin: "*",
-        methods: ['GET', 'POST'],
+      // origin: 'https://humble-halibut-4wv5p96jj427pg9-5173.app.github.dev',
+      // origin: ['http://127.0.0.1:5173', "https://pebble-betting.vercel.app"],
+      origin: "*",
+      methods: ["GET", "POST"],
     },
-});
-
-const CHAT_BOT = 'ChatBot';
-let chatRoom = ''; // E.g. javascript, node,...
-let allUsers = []; // All users in current chat room
-
-io.on('connection', (socket) => {
-    console.log(`User connected ${socket.id}`);
-
+  });
+  
+  const CHAT_BOT = "ChatBot";
+  let chatRoom = ""; // E.g. javascript, node,...
+  let allUsers = []; // All users in current chat room
+  
+  io.on("connection", (socket) => {
+    console.log(`User connected`);
+    
     let __createdtime__ = Date.now(); // Current timestamp
-    let chatRoomUsers = []
-    socket.on('join_room', (data) => {
-        const { username, room } = data; // Data sent from client when join_room event emitted
-        chatRoom = room;
-        allUsers.push({ id: socket.id, username, room });
+    
+    socket.on("join_room", (data) => {
+      let chatRoomUsers = [{ username: "", room: "" }];
+      const { username, user_id, avatar, room } = data; // Data sent from client when join_room event emitted
+      chatRoom = room;
+      if (
+        !allUsers.find((user) => {
+          return user.username === username && user.room === room;
+        })
+      ) {
+        allUsers.push({ username, user_id, avatar, room });
         chatRoomUsers = allUsers.filter((user) => user.room === room);
-        socket.to(room).emit('chatroom_users', chatRoomUsers);
-        socket.emit('chatroom_users', chatRoomUsers);
-        socket.join(room); // Join the user to a socket room
-
-        // Send message to all users currently in the room, apart from the user that just joined
-        socket.to(room).emit('receive_message', {
-            message: `${username} has joined the chat room`,
-            username: CHAT_BOT,
-            __createdtime__,
-        });
-        socket.emit('receive_message', {
-            message: `Welcome ${username}`,
-            username: CHAT_BOT,
-            __createdtime__,
-        });
+        console.log("user joined room");
+      } else {
+        console.log("user already joined");
+      }
+      socket.join(room); // Join the user to a socket room
+      socket.to(room).emit("chatroom_users", allUsers);
+      socket.emit("chatroom_users", allUsers);
+  
+      // Send message to all users currently in the room, apart from the user that just joined
+      // socket.to(room).emit("receive_message", {
+      //   message: `${username} has joined the chat room`,
+      //   username: CHAT_BOT,
+      //   __createdtime__,
+      // });
+  
+      // socket.emit("receive_message", {
+      //   message: `Welcome ${username}`,
+      //   username: CHAT_BOT,
+      //   __createdtime__,
+      // });
     });
-
-    socket.on('send_message', (data) => {
-        // const { message, username, room, __createdtime__ } = data;
-        const { room } = data;
-        io.in(room).emit('receive_message', data); // Send to all users in room, including sender
-        // todo: save message to db
-        // saveMessage(message, username, room, __createdtime__) // Save message in db
-        //   .then((response) => console.log(response))
-        //   .catch((err) => console.log(err));
+  
+    socket.on("send_message", async (data) => {
+      const { room, user_id, message } = data;
+      console.log("sdkl1");
+      io.in(room).emit("receive_message", data);
+      console.log("sdskfsd");
+      const { error } = await supabase.from("chats").insert({
+        user_id,
+        message,
+        room,
+      });
+      error && console.log("failed to save message due to: ", error.message);
     });
-});
+  });
 
 const pebble_count = 8;
 const hamster_count = 4;
@@ -1022,3 +1042,8 @@ const IDL = {
 };
 
 // start()
+
+// Start the server
+server.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});
